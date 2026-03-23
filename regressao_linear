@@ -1,0 +1,39 @@
+
+
+A4. Código em Python referente ao modelo de Regressão Linear
+# Importando os módulos das bibliotecas necessárias para manipulação de dados e modelagem estatística
+import pandas as pd
+import statsmodels.api as sm
+# Lendo o arquivo Excel e armazenando os dados em um DataFrame
+df = pd.read_excel("planilha_normalizada.xlsx")
+# Indicando o início do processo de padronização (centralização) das variáveis
+# Criando uma nova variável ao subtrair a média do ano de cada observação
+df['Ano_c'] = df['Ano'] - df['Ano'].mean()
+# Criando uma nova variável ao subtrair a média do mês de cada observação
+df['Mes_c'] = df['Mês'] - df['Mês'].mean()
+# Criando uma nova variável ao subtrair a média do número de animais de cada observação
+df['Animais_c'] = df['Animais'] - df['Animais'].mean()
+# Indicando a definição das variáveis do modelo
+# Definindo a variável dependente que será explicada pelo modelo
+y = df['Sangue']
+# Selecionando as variáveis independentes já centralizadas
+X = df[['Animais_c', 'Ano_c', 'Mes_c']]
+# Adicionando uma constante à matriz de variáveis explicativas para estimar o intercepto
+X = sm.add_constant(X)
+# Ajustando o modelo de regressão linear múltipla pelo método dos mínimos quadrados ordinários (OLS)
+modelo = sm.OLS(y, X).fit()
+# Exibindo o resumo estatístico do modelo com coeficientes, testes e medidas de ajuste
+print(modelo.summary())
+# Importando a função para cálculo do Fator de Inflação da Variância (VIF)
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+# Criando um DataFrame vazio para armazenar os valores de VIF
+vif = pd.DataFrame()
+# Inserindo os nomes das variáveis do modelo no DataFrame de VIF
+vif["Variável"] = X.columns
+# Calculando o VIF de cada variável ao avaliar a multicolinearidade entre os regressores
+vif["VIF"] = [
+    variance_inflation_factor(X.values, i)
+    for i in range(X.shape[1])
+]
+# Imprimindo a tabela de VIF para análise da presença de multicolinearidade
+print(vif)
