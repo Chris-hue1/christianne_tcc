@@ -1,0 +1,178 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Dec 18 10:47:27 2025
+
+@author: chris
+"""
+
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from openpyxl import load_workbook
+from openpyxl.chart import ScatterChart, Reference, Series
+
+
+df = pd.read_excel("planilha_normalizada.xlsx")
+#preparacao dos dados
+print(df.columns)
+# Selecionar variáveis numéricas relevantes
+variaveis = [
+    'Animais',
+    'Sangue',
+    'Ossos',
+    'Res_abate',
+    'Res_industria',
+    'Res_descarte',
+    'Volume_cons.',
+    'Energia'
+    
+    
+]
+
+
+X = df[variaveis]
+
+# Identificação de padrões – K-means (Clustering)
+
+
+from sklearn.cluster import KMeans
+
+# Definição do número de clusters
+#kmeans = KMeans(n_clusters=3, random_state=42)
+kmeans = KMeans(
+    n_clusters=3,
+    random_state=42,
+    n_init=10
+)
+
+
+df['cluster'] = kmeans.fit_predict(X)
+
+# Visualizar quantidade de observações por grupo
+df['cluster'].value_counts()
+
+#visualizacao dos padroes pca
+
+from sklearn.decomposition import PCA
+
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X)
+
+df['PC1'] = X_pca[:, 0]
+df['PC2'] = X_pca[:, 1]
+
+# Loadings
+loadings = pd.DataFrame(
+    pca.components_.T,
+    columns=['PC1', 'PC2'],
+    index=variaveis
+)
+
+print(loadings)
+
+
+# Variância explicada
+print(pca.explained_variance_)
+
+pca.explained_variance_ratio_
+
+print(pca.explained_variance_ratio_)
+#identificacao de anamalias
+
+from sklearn.ensemble import IsolationForest
+
+iso = IsolationForest(contamination=0.05, random_state=42)
+df['anomalia'] = iso.fit_predict(X)
+
+# -1 indica anomalia, 1 indica comportamento normal
+df['anomalia'].value_counts()
+
+
+
+plt.figure(figsize=(8, 6))
+scatter = plt.scatter(
+    df['PC1'],
+    df['PC2'],
+    c=df['cluster'],
+    s=80
+)
+
+for i, txt in enumerate(df.index):
+    plt.text(X_pca[i, 0], X_pca[i, 1], txt)
+
+
+plt.xlabel('PC1')
+plt.ylabel('PC2')
+plt.title('PCA – PC1 vs PC2 (Clusters)')
+plt.colorbar(scatter, label='Cluster')
+plt.grid(True)
+plt.show()
+
+
+
+plt.figure(figsize=(8, 6))
+scatter = plt.scatter(
+    df['PC1'],
+    df['PC2'],
+    c=df['cluster'],
+    s=80
+)
+
+plt.xlabel('PC1')
+plt.ylabel('PC2')
+plt.title('Distribuição dos Clusters no Espaço PCA (PC1 x PC2)')
+plt.colorbar(scatter, label='Cluster')
+plt.grid(True)
+plt.show()
+
+
+# Salvar dados necessários no Excel
+arquivo_excel = "resultado_pca_clusters.xlsx"
+df.to_excel(arquivo_excel, index=True, sheet_name="Dados")
+
+ #Abrir o arquivo Excel
+wb = load_workbook(arquivo_excel)
+ws = wb["Dados"]
+
+#Remover gráficos existentes
+ws._charts = []
+
+# Criar NOVO gráfico
+chart = ScatterChart()
+chart.title = "Distribuição dos Clusters no Espaço PCA (PC1 x PC2)"
+chart.x_axis.title = "PC1"
+chart.y_axis.title = "PC2"
+
+col_pc1 = df.columns.get_loc("PC1") + 2
+col_pc2 = df.columns.get_loc("PC2") + 2
+col_cluster = df.columns.get_loc("cluster") + 2
+
+clusters = df["cluster"].unique()
+
+for c in clusters:
+    linhas = [i + 2 for i, v in enumerate(df["cluster"]) if v == c]
+
+    xvalues = Reference(
+        ws,
+        min_col=col_pc1,
+        min_row=min(linhas),
+        max_row=max(linhas)
+    )
+
+    yvalues = Reference(
+        ws,
+        min_col=col_pc2,
+        min_row=min(linhas),
+        max_row=max(linhas)
+    )
+
+    serie = Series(yvalues, xvalues, title=f"Cluster {c}")
+    chart.series.append(serie)
+
+# 👉 ADICIONAR O GRÁFICO UMA ÚNICA VEZ
+ws.add_chart(chart, "N2")
+
+# Salvar arquivo
+wb.save(arquivo_excel)
