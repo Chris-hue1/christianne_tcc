@@ -17,7 +17,7 @@ from openpyxl.chart import ScatterChart, Reference, Series
 df = pd.read_excel("planilha_normalizada.xlsx")
 #preparacao dos dados
 print(df.columns)
-# Selecionar variáveis numéricas relevantes
+# Seleciona variáveis numéricas relevantes
 variaveis = [
     'Animais',
     'Sangue',
@@ -63,7 +63,7 @@ X_pca = pca.fit_transform(X)
 df['PC1'] = X_pca[:, 0]
 df['PC2'] = X_pca[:, 1]
 
-# Loadings
+
 loadings = pd.DataFrame(
     pca.components_.T,
     columns=['PC1', 'PC2'],
@@ -86,9 +86,20 @@ from sklearn.ensemble import IsolationForest
 iso = IsolationForest(contamination=0.05, random_state=42)
 df['anomalia'] = iso.fit_predict(X)
 
-# -1 indica anomalia, 1 indica comportamento normal
-df['anomalia'].value_counts()
 
+#identificacao de anomalias
+from sklearn.ensemble import IsolationForest
+iso = IsolationForest(contamination=0.05, random_state=42)
+df['anomalia'] = iso.fit_predict(X)
+df['anomalia_score'] = iso.decision_function(X)  # quanto mais negativo, mais anômalo
+
+# -1 indica anomalia, 1 indica comportamento normal
+print(df['anomalia'].value_counts())
+
+# Mostra quais observações foram anomalias
+print("\nObservações classificadas como anomalia:")
+colunas_id = [c for c in ['Mês', 'Ano'] if c in df.columns]  # ajuste conforme o nome real
+print(df.loc[df['anomalia'] == -1, colunas_id + variaveis + ['anomalia_score']])
 
 
 plt.figure(figsize=(8, 6))
@@ -128,18 +139,18 @@ plt.grid(True)
 plt.show()
 
 
-# Salvar dados necessários no Excel
+# Salva dados no Excel
 arquivo_excel = "resultado_pca_clusters.xlsx"
 df.to_excel(arquivo_excel, index=True, sheet_name="Dados")
 
- #Abrir o arquivo Excel
+ #Abri  arquivo Excel
 wb = load_workbook(arquivo_excel)
 ws = wb["Dados"]
 
 #Remover gráficos existentes
 ws._charts = []
 
-# Criar NOVO gráfico
+# Cria gráfico
 chart = ScatterChart()
 chart.title = "Distribuição dos Clusters no Espaço PCA (PC1 x PC2)"
 chart.x_axis.title = "PC1"
@@ -171,8 +182,8 @@ for c in clusters:
     serie = Series(yvalues, xvalues, title=f"Cluster {c}")
     chart.series.append(serie)
 
-# 👉 ADICIONAR O GRÁFICO UMA ÚNICA VEZ
+
 ws.add_chart(chart, "N2")
 
-# Salvar arquivo
+# Salva o arquivo
 wb.save(arquivo_excel)
